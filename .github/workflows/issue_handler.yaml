@@ -1,0 +1,52 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+name: "Github-Asana bridge"
+
+on:
+  workflow_call:
+    inputs:
+      issue-url:
+        description: "The URL of the Github Issue that triggered this workflow."
+        required: true
+        type: string
+      issue-title:
+        description: "The title of the Github Issue that triggered this workflow."
+        required: true
+        type: string
+      issue-body:
+        description: "The body of the Github Issue that triggered this workflow."
+        required: true
+        type: string
+      issue-timestamp:
+        description: "The last-updated timestamp of the Github Issue that triggered this workflow."
+        required: true
+        type: string
+    secrets:
+      ASANA_PROJECT:
+        description: "The Asana project two which you are bridging."
+        required: true
+      ASANA_PAT:
+        description: "The access token required to manipulate Asana."
+        required: true
+
+jobs:
+  manage_asana_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: "Install Python dependencies"
+        run: pip install -r requirements.txt
+      - name: "Create/Update Asana task"
+        run: bin/manage_asana_task.py
+        env:
+          ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          ISSUE_URL: ${{ inputs.issue-url }}
+          ISSUE_TITLE: ${{ inputs.issue-title }}
+          ISSUE_BODY: ${{ inputs.issue-body }}
+          ISSUE_TIMESTAMP: ${{ inputs.issue-timestamp }}
