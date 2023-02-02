@@ -1,0 +1,28 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# Used to test the Asana bridge, and also a reference implementation of sorts,
+# though note that this uses the action locally, but you'd have to load it
+# from the repo. See the README
+
+name: "Github-Asana bridge: development"
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  handle_issue:
+    name: "Trigger following GH Issue change"
+    uses: ./.github/workflows/issue_handler.yaml
+    with:
+      issue-body: ${{ github.event.issue.body }}
+      issue-timestamp: ${{ github.event.issue.updated_at }}
+      issue-title: ${{ github.event.issue.title }}
+      issue-url: ${{ github.event.issue.html_url }}
+    secrets:
+      ASANA_PAT: ${{ secrets.ASANA_PAT }}
+      ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
+      REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -30,9 +30,13 @@ on:
       ASANA_PAT:
         description: "The access token required to manipulate Asana."
         required: true
+      REPO_TOKEN:
+        description: "The value of GITHUB_TOKEN associtated with the calling repo."
+        required: true
 
 jobs:
   manage_asana_issue:
+    name: "Trigger Github-Asana bridge"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -44,9 +48,10 @@ jobs:
       - name: "Create/Update Asana task"
         run: bin/manage_asana_task.py
         env:
-          ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
-          ISSUE_URL: ${{ inputs.issue-url }}
-          ISSUE_TITLE: ${{ inputs.issue-title }}
+          ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_BODY: ${{ inputs.issue-body }}
           ISSUE_TIMESTAMP: ${{ inputs.issue-timestamp }}
+          ISSUE_TITLE: ${{ inputs.issue-title }}
+          ISSUE_URL: ${{ inputs.issue-url }}
