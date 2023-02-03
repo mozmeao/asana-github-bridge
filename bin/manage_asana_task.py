@@ -5,6 +5,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import json
+import sys
 from os import environ
 from textwrap import dedent
 from typing import Dict, Tuple
@@ -34,6 +35,11 @@ ASANA_ALLOWED_TAGS_FOR_TASKS = {
     "u",
     "ul",
 }
+
+
+def log(message: str) -> None:
+    sys.stdout.write(message)
+    sys.stdout.write("\n")
 
 
 def _get_default_headers() -> Dict:
@@ -134,10 +140,10 @@ def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[st
         headers=_get_default_headers(),
     )
     if resp.status_code != 201:
-        print(resp.content)
+        log(resp.content)
     else:
         task_permalink = json.loads(resp.text).get("data", {}).get("permalink_url")
-        print(f"Asana task created: {task_permalink}")
+        log(f"Asana task created: {task_permalink}")
 
     return task_permalink, github_description_changed_for_asana
 
@@ -167,7 +173,7 @@ def add_task_as_comment_on_github_issue(
     GITHUB_TOKEN = environ.get("GITHUB_TOKEN")
 
     if not GITHUB_TOKEN:
-        print("No GITHUB_TOKEN found - cannot update Issue")
+        log("No GITHUB_TOKEN found - cannot update Issue")
         return
 
     commenting_url = f"{issue_api_url}/comments"  # NB: no trailing slashj
@@ -190,9 +196,9 @@ def add_task_as_comment_on_github_issue(
     )
 
     if resp.status_code != 201:
-        print(f"Commenting failed: {resp.content}")
+        log(f"Commenting failed: {resp.content}")
     else:
-        print("Asana task URL added in comment on original issue")
+        log("Asana task URL added in comment on original issue")
 
 
 def main() -> None:
