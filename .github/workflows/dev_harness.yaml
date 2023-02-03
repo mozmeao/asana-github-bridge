@@ -12,10 +12,11 @@ on:
   issues:
     types:
       - opened
+      - edited
 
 jobs:
   handle_issue:
-    name: "Trigger following GH Issue change"
+    name: "Trigger following GH Issue save"
     uses: ./.github/workflows/issue_handler.yaml
     with:
       issue-body: ${{ github.event.issue.body }}
