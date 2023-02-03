@@ -72,39 +72,55 @@ def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> T
 
     # The issue_body is formatted with Markdown, which we need to render
     # to HTML for Asana to display. Strictly, it's Github-Flavored Markdown
-    # (GFM), but because we're later going to have to sanitise the HTML heavily
+    # (GFM), but because we're also going to have to sanitise the HTML heavily
     # to suit Asana's allowlist of elements (see link in docstring), there's
     # little to be gained from trying to render GFM.
     #
     # Note, too that we strip tags, rather than escape them, because it'd create
-    # a mess in Asana. We do add a note if the body has changed
+    # a mess in Asana. We do add a note if the body has changed - but ignoring
+    # insignificant changes to the issue_body takes a little legwork:
+
     content_changed_during_sanitization = False
     content_disclaimer_string = ""
 
     rendered_issue_body = markdown(issue_body)
 
+    # Do a first pass of sanitisation that includes a <p>, which we'll later drop
+    # We do this because it's simpler than covering the various cases where a
+    # new line is added/not added.
+    ASANA_ALLOWED_TAGS_FOR_TASKS__PLUS_P = ASANA_ALLOWED_TAGS_FOR_TASKS.union("p")
+
     sanitised_issue_body = bleach.clean(
         rendered_issue_body,
+        tags=ASANA_ALLOWED_TAGS_FOR_TASKS__PLUS_P,
+        strip=True,
+    )
+
+    # Is the sanitised body (so far) the same as the HTML rendered from markdown?
+    # (aside from a <hr /> tweaked for HTML5)
+    rendered_issue_body_adjusted_for_insignificant_changes = rendered_issue_body.replace("<hr />", "<hr>")
+
+    if sanitised_issue_body != rendered_issue_body_adjusted_for_insignificant_changes:
+        content_changed_during_sanitization = True
+        content_disclaimer_string = "<hr>\nNote: The original Issue contained content which cannot be displayed in an Asana Task"
+
+    # OK, now drop the <p> tags:
+    sanitised_issue_body = bleach.clean(
+        sanitised_issue_body,
         tags=ASANA_ALLOWED_TAGS_FOR_TASKS,
         strip=True,
     )
-    if sanitised_issue_body != rendered_issue_body:
-        content_changed_during_sanitization = True
-
-    if content_changed_during_sanitization:
-        content_disclaimer_string = "<hr>\nNote: The original Issue contained content which cannot be displayed in an Asana Task"
 
     html_body = dedent(
         f"""\
         <body>
-            <i>Issue created <a href="{issue_url}">in Github</a> at {formatted_timestamp}</i>
-            <hr>
-            <strong>Description</strong> from <a href="{issue_url}">Github</a>:
-            {sanitised_issue_body}
-            {content_disclaimer_string}
-        </body>"""  # noqa: E501
+        <i>Issue created <a href="{issue_url}">in Github</a> at {formatted_timestamp}</i>
+        <hr>
+        <strong>Description</strong> from <a href="{issue_url}">Github</a>:
+        {sanitised_issue_body}
+        {content_disclaimer_string}
+        </body>"""
     )
-
     return html_body, content_changed_during_sanitization
 
 
