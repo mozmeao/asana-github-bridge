@@ -7,31 +7,44 @@ name: "Github-Asana bridge"
 on:
   workflow_call:
     inputs:
+      actor:
+        required: true
+        type: string
       issue-url:
-        description: "The URL of the Github Issue that triggered this workflow."
+        description: The URL of the Github Issue that triggered this workflow.
         required: true
         type: string
       issue-title:
-        description: "The title of the Github Issue that triggered this workflow."
+        description: The title of the Github Issue that triggered this workflow.
         required: true
         type: string
       issue-body:
-        description: "The body of the Github Issue that triggered this workflow."
+        description: The body of the Github Issue that triggered this workflow.
         required: true
         type: string
       issue-timestamp:
-        description: "The last-updated timestamp of the Github Issue that triggered this workflow."
+        description: The last-updated timestamp of the Github Issue that triggered this workflow.
         required: true
+        type: string
+      only-react-to:
+        description: >
+          What user set to react to. One of: `repo-team | repo-org | all`
+          where `all` is anyone with access to raise an Issue, `repo-team`
+          has team-level access to the caller repo and `repo-org` is someone
+          with org-level _membership_ for the org the caller repo is in
+        required: false
+        default: repo-org
         type: string
     secrets:
       ASANA_PROJECT:
-        description: "The Asana project two which you are bridging."
+        description: The Asana project two which you are bridging.
         required: true
       ASANA_PAT:
-        description: "The access token required to manipulate Asana."
+        description: The access token required to manipulate Asana.
         required: true
       REPO_TOKEN:
-        description: "The value of GITHUB_TOKEN associtated with the calling repo."
+        description: >
+          A token with appropriate scope to inspect the repo - see README
         required: true
 
 jobs:
@@ -48,10 +61,13 @@ jobs:
       - name: "Create/Update Asana task"
         run: bin/manage_asana_task.py
         env:
+          ACTOR: ${{ inputs.actor }}
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
           ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_BODY: ${{ inputs.issue-body }}
           ISSUE_TIMESTAMP: ${{ inputs.issue-timestamp }}
           ISSUE_TITLE: ${{ inputs.issue-title }}
           ISSUE_URL: ${{ inputs.issue-url }}
+          REPO: ${{ github.repository }}
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+          ONLY_REACT_TO: ${{ inputs.only-react-to }}

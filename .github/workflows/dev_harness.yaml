@@ -12,13 +12,15 @@ on:
   issues:
     types:
       - opened
-      - edited
+      - edited # TODO: remove me after initial dev
+      # - closed # TODO: add support for me
 
 jobs:
   handle_issue:
     name: "Trigger following GH Issue save"
     uses: ./.github/workflows/issue_handler.yaml
     with:
+      actor: ${{ github.actor }}
       issue-body: ${{ github.event.issue.body }}
       issue-timestamp: ${{ github.event.issue.updated_at }}
       issue-title: ${{ github.event.issue.title }}
@@ -26,4 +28,4 @@ jobs:
     secrets:
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-      REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}
