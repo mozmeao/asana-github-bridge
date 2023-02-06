@@ -30,16 +30,10 @@ on:
 
 jobs:
   handle_issue:
-    name: "Trigger following GH Issue change"
+    name: "Trigger following GH Issue creation"
     uses: mozmeao/asana-github-bridge/.github/workflows/issue_handler.yaml@APPROPRIATE_VERISON_HERE
-    permissions:
-      repository-projects: "read"
     with:
-      actor: ${{ github.actor }}
-      issue-body: ${{ github.event.issue.body }}
-      issue-timestamp: ${{ github.event.issue.updated_at }}
-      issue-title: ${{ github.event.issue.title }}
-      issue-url: ${{ github.event.issue.html_url }}
+      only-react-to: repo-org   # optional - see issue_handler.yaml
     secrets:
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}

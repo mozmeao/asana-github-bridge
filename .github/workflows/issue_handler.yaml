@@ -7,25 +7,6 @@ name: "Github-Asana bridge"
 on:
   workflow_call:
     inputs:
-      actor:
-        required: true
-        type: string
-      issue-url:
-        description: The URL of the Github Issue that triggered this workflow.
-        required: true
-        type: string
-      issue-title:
-        description: The title of the Github Issue that triggered this workflow.
-        required: true
-        type: string
-      issue-body:
-        description: The body of the Github Issue that triggered this workflow.
-        required: true
-        type: string
-      issue-timestamp:
-        description: The last-updated timestamp of the Github Issue that triggered this workflow.
-        required: true
-        type: string
       only-react-to:
         description: >
           What user set to react to. One of: `repo-team | repo-org | all`
@@ -61,13 +42,13 @@ jobs:
       - name: "Create/Update Asana task"
         run: bin/manage_asana_task.py
         env:
-          ACTOR: ${{ inputs.actor }}
+          ACTOR: ${{ github.actor }}
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
           ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-          ISSUE_BODY: ${{ inputs.issue-body }}
-          ISSUE_TIMESTAMP: ${{ inputs.issue-timestamp }}
-          ISSUE_TITLE: ${{ inputs.issue-title }}
-          ISSUE_URL: ${{ inputs.issue-url }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TIMESTAMP: ${{ github.event.issue.updated_at }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
           REPO: ${{ github.repository }}
           REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
           ONLY_REACT_TO: ${{ inputs.only-react-to }}
