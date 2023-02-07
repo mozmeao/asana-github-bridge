@@ -46,7 +46,6 @@ jobs:
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
           ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
           ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_TIMESTAMP: ${{ github.event.issue.updated_at }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
           REPO: ${{ github.repository }}

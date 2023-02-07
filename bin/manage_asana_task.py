@@ -15,14 +15,16 @@ import requests
 from markdown import markdown
 
 ASANA_API_ROOT = "https://app.asana.com/api/1.0/"
-ASANA_TASK_COLLECTION_ENDPOINT = f"{ASANA_API_ROOT}tasks"
 ASANA_PROJECT = environ.get("ASANA_PROJECT")
+ASANA_TASK_COLLECTION_ENDPOINT = f"{ASANA_API_ROOT}tasks"
+ASANA_PROJECT_RESOURCE_ENDPOINT = f"{ASANA_API_ROOT}projects/{ASANA_PROJECT}"
 
 FLAG_ONLY_REACT_TO_REPO_TEAM = "repo-team"
 FLAG_ONLY_REACT_TO_REPO_ORG = "repo-org"
 FLAG_ONLY_REACT_TO_ALL = "all"
 
 
+# Asana allows a fairly restrictive set of HTML tags it its Task body.
 # https://developers.asana.com/docs/rich-text#reading-rich-text
 ASANA_ALLOWED_TAGS_FOR_TASKS = {
     "a",
@@ -68,7 +70,42 @@ def _get_default_github_headers() -> Dict:
     return headers
 
 
-def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> Tuple[str, bool]:
+def _get_github_issue_field_gid(field_name: str = "Github Issue") -> str:
+    """Discover and return the Asana GID for the custom field we use to link to
+    a GH Issue, for the project defined by the ASANA_PROJECT env var.
+
+    The short path is to use an env var, if avaiable.
+    The longer path is to query the Asana project and find the field via its name
+
+    Args:
+        field_name (str, optional): Name of the custom field to look for. Defaults to "Github Issue".
+
+    Returns:
+        str: GID of the Github Issue field in the project.
+    """
+    issue_field_gid = environ.get("ASANA_GITHUB_ISSUE_CUSTOM_FIELD_GID", "")
+    if not issue_field_gid:
+
+        project_resp = requests.get(
+            ASANA_PROJECT_RESOURCE_ENDPOINT,
+            headers=_get_default_asana_headers(),
+        )
+        if project_resp.status_code == 200:
+            project_data = json.loads(project_resp.text)
+            for custom_field_spec in project_data.get("data", {}).get("custom_field_settings", []):
+                if custom_field_spec.get("custom_field", {}).get("name").lower() == field_name.lower():
+                    issue_field_gid = custom_field_spec.get("custom_field", {}).get("gid")
+                    log(f"Custom field {field_name} has gid of {issue_field_gid}")
+                    break
+
+    return issue_field_gid
+
+
+def _build_task_body(
+    issue_body: str,
+    issue_url: str,
+    custom_gh_field_known: bool,
+) -> Tuple[str, bool]:
     """Build a HTML string we can use for the task body in Asana.
 
     Note that only certain HTML tags are allowed, else the task creation
@@ -80,10 +117,6 @@ def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> T
         str: the formatted HTML for Asana
         bool: whether the issue_body passed in has changed during re-formatting
     """
-
-    datestamp, timestamp = issue_timestamp.split("T")
-    timestamp = timestamp.replace("Z", " UTC")
-    formatted_timestamp = f"{datestamp} {timestamp}"
 
     # The issue_body is formatted with Markdown, which we need to render
     # to HTML for Asana to display. Strictly, it's Github-Flavored Markdown
@@ -97,12 +130,13 @@ def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> T
 
     content_changed_during_sanitization = False
     content_disclaimer_string = ""
+    optional_link_string = ""
 
     rendered_issue_body = markdown(issue_body)
 
     # Do a first pass of sanitisation that includes a <p>, which we'll later drop
-    # We do this because it's simpler than covering the various cases where a
-    # new line is added/not added.
+    # We do this because it's simpler than comparing the various cases where a
+    # new line is added/not added during cleaning (eg before/not before a list)
     ASANA_ALLOWED_TAGS_FOR_TASKS__PLUS_P = ASANA_ALLOWED_TAGS_FOR_TASKS.union("p")
 
     sanitised_issue_body = bleach.clean(
@@ -111,7 +145,7 @@ def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> T
         strip=True,
     )
 
-    # Is the sanitised body (so far) the same as the HTML rendered from markdown?
+    # Is the sanitised body (so far) the same as the HTML rendered from Markdown?
     # (aside from a <hr /> tweaked for HTML5)
     rendered_issue_body_adjusted_for_insignificant_changes = rendered_issue_body.replace("<hr />", "<hr>")
 
@@ -126,20 +160,21 @@ def _build_task_body(issue_body: str, issue_timestamp: str, issue_url: str) -> T
         strip=True,
     )
 
+    if not custom_gh_field_known:
+        optional_link_string = f'<a href="{issue_url}">Github</a>'
+
     html_body = dedent(
         f"""\
         <body>
-        <i>Issue created <a href="{issue_url}">in Github</a> at {formatted_timestamp}</i>
-        <hr>
-        <strong>Description</strong> from <a href="{issue_url}">Github</a>:
         {sanitised_issue_body}
+        {optional_link_string}
         {content_disclaimer_string}
         </body>"""
     )
     return html_body, content_changed_during_sanitization
 
 
-def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[str, bool]:
+def create_task(issue_url: str, issue_title: str, issue_body: str) -> Tuple[str, bool]:
     """Create a Task in Asana using the GH Issue values provided.
 
     Returns:
@@ -150,10 +185,16 @@ def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[st
 
     task_permalink = "Error creating Asana task"
 
+    custom_gh_issue_field_gid = _get_github_issue_field_gid()
+
+    custom_fields = {}
+    if custom_gh_issue_field_gid:
+        custom_fields[custom_gh_issue_field_gid] = issue_url
+
     task_body, github_description_was_changed_for_asana = _build_task_body(
         issue_body=issue_body,
-        issue_timestamp=issue_timestamp,
         issue_url=issue_url,
+        custom_gh_field_known=bool(custom_gh_issue_field_gid),
     )
 
     payload = {
@@ -161,6 +202,7 @@ def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[st
             "projects": [ASANA_PROJECT],
             "name": issue_title,
             "html_notes": task_body,
+            "custom_fields": custom_fields,
         }
     }
 
@@ -310,13 +352,11 @@ def main() -> None:
     issue_url = environ.get("ISSUE_URL")
     issue_title = environ.get("ISSUE_TITLE")
     issue_body = environ.get("ISSUE_BODY")
-    issue_timestamp = environ.get("ISSUE_TIMESTAMP")
 
     task_permalink, github_description_was_changed_for_asana = create_task(
         issue_url=issue_url,
         issue_title=issue_title,
         issue_body=issue_body,
-        issue_timestamp=issue_timestamp,
     )
 
     add_task_as_comment_on_github_issue(
