@@ -150,7 +150,7 @@ def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[st
 
     task_permalink = "Error creating Asana task"
 
-    task_body, github_description_changed_for_asana = _build_task_body(
+    task_body, github_description_was_changed_for_asana = _build_task_body(
         issue_body=issue_body,
         issue_timestamp=issue_timestamp,
         issue_url=issue_url,
@@ -175,7 +175,7 @@ def create_task(issue_url, issue_title, issue_body, issue_timestamp) -> Tuple[st
         task_permalink = json.loads(resp.text).get("data", {}).get("permalink_url")
         log(f"Asana task created: {task_permalink}")
 
-    return task_permalink, github_description_changed_for_asana
+    return task_permalink, github_description_was_changed_for_asana
 
 
 def _transform_to_api_url(html_url: str) -> str:
@@ -195,7 +195,7 @@ def _transform_to_api_url(html_url: str) -> str:
 def add_task_as_comment_on_github_issue(
     issue_api_url: str,
     task_permalink: str,
-    github_description_changed_for_asana: bool,
+    github_description_was_changed_for_asana: bool,
 ) -> None:
     """Update the original Github issue with a comment linking back
     to the Asana task that it spawned"""
@@ -210,7 +210,7 @@ def add_task_as_comment_on_github_issue(
     headers = _get_default_github_headers()
     comment = f"This issue has been copied to Asana: {task_permalink}"
 
-    if github_description_changed_for_asana:
+    if github_description_was_changed_for_asana:
         comment += " **However**, some of the content was not mirrored due to markup restrictions."
         comment += " Please review the Asana Task."
 
@@ -312,7 +312,7 @@ def main() -> None:
     issue_body = environ.get("ISSUE_BODY")
     issue_timestamp = environ.get("ISSUE_TIMESTAMP")
 
-    task_permalink, github_description_changed_for_asana = create_task(
+    task_permalink, github_description_was_changed_for_asana = create_task(
         issue_url=issue_url,
         issue_title=issue_title,
         issue_body=issue_body,
@@ -322,7 +322,7 @@ def main() -> None:
     add_task_as_comment_on_github_issue(
         issue_api_url=_transform_to_api_url(issue_url),
         task_permalink=task_permalink,
-        github_description_changed_for_asana=github_description_changed_for_asana,
+        github_description_was_changed_for_asana=github_description_was_changed_for_asana,
     )
 
 
