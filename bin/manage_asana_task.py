@@ -8,7 +8,7 @@ import json
 import sys
 from os import environ
 from textwrap import dedent
-from typing import Dict, Tuple
+from typing import Dict, Iterable, Tuple
 
 import bleach
 import requests
@@ -41,8 +41,8 @@ ASANA_ALLOWED_TAGS_FOR_TASKS = {
 }
 
 
-def log(message: str) -> None:
-    sys.stdout.write(message)
+def log(*params: Iterable) -> None:
+    sys.stdout.write(" ".join(params))
     sys.stdout.write("\n")
 
 
