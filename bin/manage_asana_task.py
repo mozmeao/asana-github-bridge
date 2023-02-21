@@ -19,6 +19,8 @@ ASANA_PROJECT = environ.get("ASANA_PROJECT")
 ASANA_TASK_COLLECTION_ENDPOINT = f"{ASANA_API_ROOT}tasks"
 ASANA_PROJECT_RESOURCE_ENDPOINT = f"{ASANA_API_ROOT}projects/{ASANA_PROJECT}"
 
+MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK = "Error creating Asana task"
+
 FLAG_ONLY_REACT_TO_REPO_TEAM = "repo-team"
 FLAG_ONLY_REACT_TO_REPO_ORG = "repo-org"
 FLAG_ONLY_REACT_TO_ALL = "all"
@@ -50,7 +52,6 @@ def log(*params: Iterable) -> None:
 
 def _get_default_asana_headers() -> Dict:
     token = environ.get("ASANA_PAT")
-
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
@@ -61,7 +62,6 @@ def _get_default_asana_headers() -> Dict:
 
 def _get_default_github_headers() -> Dict:
     token = environ.get("REPO_TOKEN")
-
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -84,6 +84,7 @@ def _get_github_issue_field_gid(field_name: str = "Github Issue") -> str:
         str: GID of the Github Issue field in the project.
     """
     issue_field_gid = environ.get("ASANA_GITHUB_ISSUE_CUSTOM_FIELD_GID", "")
+
     if not issue_field_gid:
 
         project_resp = requests.get(
@@ -174,7 +175,11 @@ def _build_task_body(
     return html_body, content_changed_during_sanitization
 
 
-def create_task(issue_url: str, issue_title: str, issue_body: str) -> Tuple[str, bool]:
+def create_task(
+    issue_url: str,
+    issue_title: str,
+    issue_body: str,
+) -> Tuple[str, bool]:
     """Create a Task in Asana using the GH Issue values provided.
 
     Returns:
@@ -183,7 +188,7 @@ def create_task(issue_url: str, issue_title: str, issue_body: str) -> Tuple[str,
             the Asana HTML allowlist
     """
 
-    task_permalink = "Error creating Asana task"
+    task_permalink = MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK
 
     custom_gh_issue_field_gid = _get_github_issue_field_gid()
 
@@ -211,11 +216,13 @@ def create_task(issue_url: str, issue_title: str, issue_body: str) -> Tuple[str,
         json=payload,
         headers=_get_default_asana_headers(),
     )
-    if resp.status_code != 201:
-        log(resp.content)
-    else:
+    if resp.status_code == 201:
         task_permalink = json.loads(resp.text).get("data", {}).get("permalink_url")
         log(f"Asana task created: {task_permalink}")
+    else:
+        # Something's not right. Log the response and let the caller
+        # deal with things when they see task_permalink is a warning message
+        log(resp.content)
 
     return task_permalink, github_description_was_changed_for_asana
 
@@ -248,7 +255,7 @@ def add_task_as_comment_on_github_issue(
         log("No REPO_TOKEN found - cannot update Issue")
         return
 
-    commenting_url = f"{issue_api_url}/comments"  # NB: no trailing slashj
+    commenting_url = f"{issue_api_url}/comments"  # NB: no trailing slash
     headers = _get_default_github_headers()
     comment = f"This issue has been copied to Asana: {task_permalink}"
 
@@ -263,7 +270,7 @@ def add_task_as_comment_on_github_issue(
     )
 
     if resp.status_code != 201:
-        log(f"Commenting failed: {resp.content}")
+        log(f"Commenting failed: {resp.text}")
     else:
         log("Asana task URL added in comment on original issue")
 
@@ -288,7 +295,7 @@ def _may_bridge_to_asana(actor: str, repo_info: str) -> bool:
         # Nothing to check - just forward everyone's issues -- this is probably
         # only wise on a private repo.
         log("All Issues are being bridged to Asana.")
-        return
+        return True
 
     elif only_react_to_flag == FLAG_ONLY_REACT_TO_REPO_TEAM:
         # If the actor is in a team that's associated with the repo, we'll allow it
@@ -312,7 +319,7 @@ def _may_bridge_to_asana(actor: str, repo_info: str) -> bool:
 
             members = [x["login"] for x in json.loads(raw_members_resp.text)]
             if actor in members:
-                log("Issue actor is on a team associated with the repo.")
+                log(f"Issue actor {actor} is on a team associated with the repo.")
                 return True
 
     elif only_react_to_flag == FLAG_ONLY_REACT_TO_REPO_ORG:
@@ -337,9 +344,9 @@ def main() -> None:
     """Initially, just create a new Asana Task based on the GH Issue
     related to triggering this action
 
-    TODO:
-    * Updating Asana tasks when issues are updated
-    * Closing tasks when issues are closed
+    TODO (TBC):
+    * Updating Asana tasks when issues are updated - or at least commenting in Asana that the GH Issue was updated
+    * Closing Tasks when Issues are closed
     """
 
     github_repo = environ.get("REPO")
@@ -359,11 +366,13 @@ def main() -> None:
         issue_body=issue_body,
     )
 
-    add_task_as_comment_on_github_issue(
-        issue_api_url=_transform_to_api_url(issue_url),
-        task_permalink=task_permalink,
-        github_description_was_changed_for_asana=github_description_was_changed_for_asana,
-    )
+    if task_permalink != MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK:
+
+        add_task_as_comment_on_github_issue(
+            issue_api_url=_transform_to_api_url(issue_url),
+            task_permalink=task_permalink,
+            github_description_was_changed_for_asana=github_description_was_changed_for_asana,
+        )
 
 
 if __name__ == "__main__":
