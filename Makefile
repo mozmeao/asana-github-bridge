@@ -8,8 +8,17 @@ all: help
 compile-requirements:
 	./bin/compile-requirements.sh
 
+test:
+	pytest \
+    --cov-config=.coveragerc \
+    --cov-report=html \
+    --cov-report=term-missing \
+    --cov-report=xml:python_coverage/coverage.xml \
+    --cov=.
+
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
+	@echo "  test   				- run pytest, with coverage checks enabled"
 	@echo "  compile-requirements   - update Python requirements files using pip-compile-multi"
 
-.PHONY: all compile-requirements help
+.PHONY: all compile-requirements test help

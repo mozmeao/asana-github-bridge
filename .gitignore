@@ -1,6 +1,7 @@
 __pycache__/*
 *.pyc
 .cache
+python_coverage/
 .coverage
 .docker-build*
 .DS_Store
