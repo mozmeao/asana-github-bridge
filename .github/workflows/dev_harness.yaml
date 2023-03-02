@@ -11,13 +11,15 @@ name: "Github-Asana bridge: development"
 on:
   issues:
     types:
-      - opened
+      - labeled
+      # - opened # works, but we don't want it on every one
       # - edited # TODO: add support for me
       # - closed # TODO: add support for me
 
 jobs:
   handle_issue:
-    name: "Trigger following GH Issue save"
+    if: github.event.label.name == 'Asana'
+    name: "Trigger after specific GH label was added"
     uses: ./.github/workflows/issue_handler.yaml
     with:
       only-react-to: repo-org
