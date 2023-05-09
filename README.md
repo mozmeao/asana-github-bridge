@@ -32,7 +32,7 @@ Loose roadmap:
 
 2. Ideally using a service account, create a Github Personal Access Token (e.g. called `ASANA_GITHUB_BRIDGE_TOKEN`) with these permissions:
     * `read: org` - we need see organization membership and team membership, unless you're allowing `only-react-to: all` in the action (see below)
-    * `admin: write` - to be able to comment on the original Issue. If this is not present, the commenting with the Asana link will not happen, but the copy to Asana will.
+    * `repo: public_repo` - to be able to comment on the original Issue _for a public repository_. If this is not present, the commenting with the Asana link will not happen, but the copy to Asana will. If the repo is private, you will likely need to add to the scope to be able to support comments. The output of the GH Action will show you if the token has sufficient scope.
 
     If you are using SSO remember to authorize that token for access.
 
