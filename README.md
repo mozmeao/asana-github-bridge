@@ -2,7 +2,7 @@
 
 Github Actions integration with Asana
 
-*Status:* WIP/pre-production - **not yet for general use**.
+*Status:* Alpha - works, but sill in development
 
 This repo enables Github Action integration with Asana in ways that are suited to the MozMEAO workflow.
 
@@ -18,7 +18,8 @@ This repo enables Github Action integration with Asana in ways that are suited t
 
 Loose roadmap:
 
-* Tests for current behaviour, to clear the way for easy code contributions
+* ~Tests for current behaviour, to clear the way for easy code contributions~ DONE
+* Plug into coverage-measuring tool, to clear the way for easy code contributions
 * Support closing Asana tasks when the GH Issue is closed
 * Limit scope to issues with certain labels
 * Automatically add PR to Asana Task if associated with the GH issue (the official Asana Github integration does this, but it's something we could roll in here and keep just one integration going)
