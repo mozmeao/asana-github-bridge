@@ -18,12 +18,15 @@ on:
 
 jobs:
   handle_issue:
-    if: github.event.label.name == 'Asana'
+    runs-on: ubuntu-latest
     name: "Trigger after specific GH label was added"
-    uses: ./.github/workflows/issue_handler.yaml
-    with:
-      only-react-to: repo-org
-    secrets:
-      ASANA_PAT: ${{ secrets.ASANA_PAT }}
-      ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}
+    if: github.event.label.name == 'Asana'
+    steps:
+      - uses: actions/checkout@v3
+      - id: run-bridger
+        uses: ./.github/actions/issue_handler
+        with:
+          only-react-to: repo-org
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
+          REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}
