@@ -22,7 +22,6 @@ jobs:
     name: "Trigger after specific GH label was added"
     if: github.event.label.name == 'Asana'
     steps:
-      - uses: actions/checkout@v3
       - id: run-bridger
         uses: mozmeao/asana-github-bridge/issue-handler@main
         with:
