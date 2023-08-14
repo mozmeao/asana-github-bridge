@@ -52,7 +52,7 @@ on:
 jobs:
   handle_issue:
     name: "Trigger following GH Issue creation"
-    uses: mozmeao/asana-github-bridge@APPROPRIATE_VERSION_HERE
+    uses: mozmeao/asana-github-bridge/issue-handler@APPROPRIATE_VERSION_HERE
     with:
       only-react-to: repo-org   # optional - see issue_handler.yaml
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
@@ -75,7 +75,7 @@ jobs:
   handle_issue:
     if: github.event.label.name == 'Asana'
     name: "Trigger after specific GH label was added"
-    uses: mozmeao/asana-github-bridge@APPROPRIATE_VERSION_HERE
+    uses: mozmeao/asana-github-bridge/issue-handler@APPROPRIATE_VERSION_HERE
     with:
       only-react-to: repo-org   # optional - see issue_handler.yaml
       ASANA_PAT: ${{ secrets.ASANA_PAT }}

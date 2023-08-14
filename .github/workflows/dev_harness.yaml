@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: run-bridger
-        uses: ./.github/actions/issue_handler
+        uses: mozmeao/asana-github-bridge/issue-handler@main
         with:
           only-react-to: repo-org
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
