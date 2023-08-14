@@ -25,20 +25,28 @@ inputs:
     description: >
       A token with appropriate scope to inspect the repo - see README
     required: true
+  TAG:
+    description: >
+      The specific version of the project to check out when running the sync
+    required: true
 
 runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v3
+      with:
+        repository: "mozmeao/asana-github-bridge"
+        ref: ${{ inputs.TAG }}
+        path: bridger
     - uses: actions/setup-python@v4
       with:
         python-version: "3.10"
     - name: "Install Python dependencies"
       shell: bash
-      run: pip install -r requirements.txt
+      run: pip install -r bridger/requirements.txt
     - name: "Create/Update Asana task"
       shell: bash
-      run: bin/manage_asana_task.py
+      run: bridger/bin/manage_asana_task.py
       env:
         ACTOR: ${{ github.actor }}
         ASANA_PAT: ${{ inputs.ASANA_PAT }}

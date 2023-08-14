@@ -52,12 +52,14 @@ on:
 jobs:
   handle_issue:
     name: "Trigger following GH Issue creation"
-    uses: mozmeao/asana-github-bridge/issue-handler@APPROPRIATE_VERSION_HERE
+    uses: mozmeao/asana-github-bridge/issue-handler@v1.1
     with:
       only-react-to: repo-org   # optional - see issue_handler.yaml
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
       REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # or secrets.GITHUB_TOKEN - see point 2 above
+      TAG: v1.1  # version of the bridge to use - see the repo for tags
+
 ```
 
 or
@@ -75,12 +77,14 @@ jobs:
   handle_issue:
     if: github.event.label.name == 'Asana'
     name: "Trigger after specific GH label was added"
-    uses: mozmeao/asana-github-bridge/issue-handler@APPROPRIATE_VERSION_HERE
+    uses: mozmeao/asana-github-bridge/issue-handler@v1.1
     with:
       only-react-to: repo-org   # optional - see issue_handler.yaml
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
       REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # or secrets.GITHUB_TOKEN - see point 2 above
+      TAG: v1.1  # version of the bridge to use - see the repo for tags
+
 ```
 
 More information will follow as functionality is checked and enabled.
