@@ -31,8 +31,7 @@ Loose roadmap:
 1. Set up your repo's secrets to make `ASANA_PAT` and `ASANA_PROJECT` available - both of these you get from the Asana side. Ideally, the PAT should be an Asana [service account](https://asana.com/guide/help/premium/service-accounts) token. You can get the Project ID from the URL of the project.
 
 2. Ideally using a service account, create a Github Personal Access Token (e.g. called `ASANA_GITHUB_BRIDGE_TOKEN`) with these permissions:
-    * `read: org` - we need see organization membership and team membership, unless you're allowing `only-react-to: all` in the action (see below)
-    * `repo: public_repo` - to be able to comment on the original Issue _for a public repository_. If this is not present, the commenting with the Asana link will not happen, but the copy to Asana will. If the repo is private, you will likely need to add to the scope to be able to support comments. The output of the GH Action will show you if the token has sufficient scope.
+    * `repo: public_repo` - to be able to comment on the original Issue _for a public repository_. If this is not present, the commenting with the Asana link will not happen, but the copy to Asana will. If the repo is private, you will likely need to add to the full `repo` scope to be able to support comments. The output of the GH Action will show you if the token has sufficient scope.
 
     If you are using SSO remember to authorize that token for access.
 
@@ -54,10 +53,11 @@ jobs:
     name: "Trigger following GH Issue creation"
     uses: mozmeao/asana-github-bridge/issue-handler@v1.1
     with:
-      only-react-to: repo-org   # optional - see issue_handler.yaml
+      ONLY_REACT_TO: specified-users   # optional - see issue_handler.yaml
+      ACTOR_ALLOWLIST: usernameA,userB,userC
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # or secrets.GITHUB_TOKEN - see point 2 above
+      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # see point 2 above
       TAG: v1.1  # version of the bridge to use - see the repo for tags
 
 ```
@@ -79,10 +79,11 @@ jobs:
     name: "Trigger after specific GH label was added"
     uses: mozmeao/asana-github-bridge/issue-handler@v1.1
     with:
-      only-react-to: repo-org   # optional - see issue_handler.yaml
+      ONLY_REACT_TO: specified-users   # optional - see issue_handler.yaml
+      ACTOR_ALLOWLIST: usernameA,userB,userC
       ASANA_PAT: ${{ secrets.ASANA_PAT }}
       ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
-      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # or secrets.GITHUB_TOKEN - see point 2 above
+      REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}  # see point 2 above
       TAG: v1.1  # version of the bridge to use - see the repo for tags
 
 ```

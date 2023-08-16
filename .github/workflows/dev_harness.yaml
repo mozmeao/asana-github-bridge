@@ -25,7 +25,8 @@ jobs:
       - id: run-bridger
         uses: mozmeao/asana-github-bridge/issue-handler@main
         with:
-          only-react-to: repo-org
+          ONLY_REACT_TO: specified-users
+          ACTOR_ALLOWLIST: stevejalim,pmac,robhudson,enavajas
           ASANA_PAT: ${{ secrets.ASANA_PAT }}
           ASANA_PROJECT: ${{ secrets.ASANA_PROJECT }}
           REPO_TOKEN: ${{ secrets.ASANA_GITHUB_BRIDGE_TOKEN }}

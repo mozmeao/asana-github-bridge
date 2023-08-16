@@ -21,8 +21,7 @@ ASANA_PROJECT_RESOURCE_ENDPOINT = f"{ASANA_API_ROOT}projects/{ASANA_PROJECT}"
 
 MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK = "Error creating Asana task"
 
-FLAG_ONLY_REACT_TO_REPO_TEAM = "repo-team"
-FLAG_ONLY_REACT_TO_REPO_ORG = "repo-org"
+FLAG_ONLY_REACT_TO_SPECIFIED_USERS = "specified-users"
 FLAG_ONLY_REACT_TO_ALL = "all"
 
 
@@ -86,7 +85,6 @@ def _get_github_issue_field_gid(field_name: str = "Github Issue") -> str:
     issue_field_gid = environ.get("ASANA_GITHUB_ISSUE_CUSTOM_FIELD_GID", "")
 
     if not issue_field_gid:
-
         project_resp = requests.get(
             ASANA_PROJECT_RESOURCE_ENDPOINT,
             headers=_get_default_asana_headers(),
@@ -278,10 +276,10 @@ def add_task_as_comment_on_github_issue(
 def _may_bridge_to_asana(actor: str, repo_info: str) -> bool:
     """If this is used on a public repo, we don't want to sync every issue
     to Asana. So, for now we'll only sync issues opened by people who are
-    members of teams with access to the repository.
+    in allowlist of specific users.
 
     Args:
-        actor (string):     The username of whoever opened the isue
+        actor (string):     The username of whoever opened the issue
         repo_info (string): The name of the org and repo - e.g. octocat/Hello-World
 
     Returns:
@@ -289,52 +287,21 @@ def _may_bridge_to_asana(actor: str, repo_info: str) -> bool:
     """
 
     only_react_to_flag = environ.get("ONLY_REACT_TO")
+    actor_allowlist = [x.strip() for x in environ.get("ACTOR_ALLOWLIST", "").split(",")]
 
-    headers = _get_default_github_headers()
     if only_react_to_flag == FLAG_ONLY_REACT_TO_ALL:
         # Nothing to check - just forward everyone's issues -- this is probably
         # only wise on a private repo.
         log("All Issues are being bridged to Asana.")
         return True
 
-    elif only_react_to_flag == FLAG_ONLY_REACT_TO_REPO_TEAM:
-        # If the actor is in a team that's associated with the repo, we'll allow it
-        repo_teams_url = f"https://api.github.com/repos/{repo_info}/teams"
-
-        raw_teams_resp = requests.get(repo_teams_url, headers=headers)
-        if raw_teams_resp.status_code != 200:
-            log(f"Problem getting teams data for {repo_info}: {raw_teams_resp} {raw_teams_resp.content}")
-            sys.exit(1)
-
-        teams = json.loads(raw_teams_resp.text)
-        _templated_member_urls_for_repo = [x["members_url"] for x in teams if x.get("members_url")]
-        # Trim out the templated member name from the URLs:
-        member_urls_for_repo = [x.replace("{/member}", "") for x in _templated_member_urls_for_repo]
-
-        for members_url in member_urls_for_repo:
-            raw_members_resp = requests.get(members_url, headers=headers)
-            if raw_members_resp.status_code != 200:
-                log(f"Problem getting members data for a team of {repo_info}: {raw_members_resp} {raw_members_resp.content}")
-                sys.exit(1)
-
-            members = [x["login"] for x in json.loads(raw_members_resp.text)]
-            if actor in members:
-                log(f"Issue actor {actor} is on a team associated with the repo.")
-                return True
-
-    elif only_react_to_flag == FLAG_ONLY_REACT_TO_REPO_ORG:
-        # If the actor is in the same org as the repo is, we'll allow it
-        org_name = repo_info.split("/")[0]
-        repo_parent_org_members_url = f"https://api.github.com/orgs/{org_name}/members"
-        raw_org_members_resp = requests.get(repo_parent_org_members_url, headers=headers)
-        if raw_org_members_resp.status_code != 200:
-            log(f"Problem getting member data for {org_name}: {raw_org_members_resp} {raw_org_members_resp.content}")
-            sys.exit(1)
-
-        members = [x["login"] for x in json.loads(raw_org_members_resp.text)]
-        if actor in members:
-            log(f"Issue actor {actor} is part of the {org_name} org that owns this repo.")
+    elif only_react_to_flag == FLAG_ONLY_REACT_TO_SPECIFIED_USERS:
+        # If the actor is associated with the repo via the allowlist, we'll allow it
+        if actor in actor_allowlist:
+            log(f"Actor {actor} is in the provided allowlist.")
             return True
+        else:
+            log(f"Actor {actor} is not in the provided allowlist.")
 
     log("Bridging this issue to Asana is not allowed")
     return False
@@ -353,7 +320,7 @@ def main() -> None:
     actor = environ.get("ACTOR")
 
     if not _may_bridge_to_asana(actor=actor, repo_info=github_repo):
-        log(f"{actor} is not in a team associated with {github_repo}. Not mirroring Issue to Asana")
+        log(f"{actor} is not in the allowlist of users who can trigger mirroring. Not mirroring this Issue to Asana")
         return
 
     issue_url = environ.get("ISSUE_URL")
@@ -367,7 +334,6 @@ def main() -> None:
     )
 
     if task_permalink != MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK:
-
         add_task_as_comment_on_github_issue(
             issue_api_url=_transform_to_api_url(issue_url),
             task_permalink=task_permalink,
