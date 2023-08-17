@@ -7,14 +7,18 @@ name: "Github-Asana bridge"
 description: "Action to manage an Asana Task based on activity in Github"
 
 inputs:
-  only-react-to:
+  ONLY_REACT_TO:
     description: >
-      What user set to react to. One of: `repo-team | repo-org | all`
-      where `all` is anyone with access to raise an Issue, `repo-team`
-      has team-level access to the caller repo and `repo-org` is someone
-      with org-level _membership_ for the org the caller repo is in
+      What user set to react to. One of: `specified-users | all`
+      where `all` is anyone with access to raise an Issue, while
+      `specified-users` is an allowlist of usernames, passed as ACTOR_ALLOWLIST
     required: false
     default: repo-org
+  ACTOR_ALLOWLIST:
+    description: >
+      Comma-separated string of login names/usernames who may trigger
+      mirroring to Asana - see ONLY_REACT_TO
+    required: false
   ASANA_PROJECT:
     description: The Asana project two which you are bridging.
     required: true
@@ -56,4 +60,5 @@ runs:
         ISSUE_URL: ${{ github.event.issue.html_url }}
         REPO: ${{ github.repository }}
         REPO_TOKEN: ${{ inputs.REPO_TOKEN }}
-        ONLY_REACT_TO: ${{ inputs.only-react-to }}
+        ONLY_REACT_TO: ${{ inputs.ONLY_REACT_TO }}
+        ACTOR_ALLOWLIST: ${{ inputs.ACTOR_ALLOWLIST }}

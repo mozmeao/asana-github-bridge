@@ -8,8 +8,7 @@ from unittest import mock
 
 from bin.manage_asana_task import (
     FLAG_ONLY_REACT_TO_ALL,
-    FLAG_ONLY_REACT_TO_REPO_ORG,
-    FLAG_ONLY_REACT_TO_REPO_TEAM,
+    FLAG_ONLY_REACT_TO_SPECIFIED_USERS,
     MESSAGE_UNABLE_TO_CREATE_ASANA_PERMALINK,
     _build_task_body,
     _get_default_asana_headers,
@@ -122,7 +121,6 @@ def test__get_github_issue_field_gid__no_env_var(
 
 @mock.patch("bin.manage_asana_task.requests.get")
 def test__get_github_issue_field_gid__404(mock_get):
-
     mock_resp = mock.Mock()
     mock_resp.status_code = 404
     mock_get.return_value = mock_resp
@@ -143,7 +141,6 @@ def test__build_task_body(
     custom_gh_field_known,
     sanitization_expected,
 ):
-
     html_body, content_changed_during_sanitization = _build_task_body(
         issue_body=issue_body,
         issue_url="https://example.com/luftballons/issues/99",
@@ -188,7 +185,6 @@ def test_create_task(
     description_changed,
     monkeypatch,
 ):
-
     monkeypatch.setenv("ASANA_PROJECT", "fake-asana-project")
 
     mock__get_github_issue_field_gid.return_value = fake_gid
@@ -246,7 +242,6 @@ def test_add_task_as_comment_on_github_issue(
     return_code,
     monkeypatch,
 ):
-
     monkeypatch.setenv("REPO_TOKEN", repo_token)
 
     fake_resp = mock.Mock(name="fake-resp")
@@ -287,203 +282,54 @@ def test__may_bridge_to_asana__react_to_all(mock_log, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "username, teams_resp_status_code, members_resp_2_status_code, expected_call_count, expected_error_log_starter, expected_result",
+    "actor_username,actor_allowlist,expected_retval",
     (
-        ("alexander-testington", 200, 200, 3, "", True),
-        ("alexander-testington", 404, "irrelevant", 1, "Problem getting teams data for example/luftballons", SystemExit),
-        ("alexander-testington", 200, 404, 3, "Problem getting members data for a team of example/luftballons", SystemExit),
-        ("username-notfound", 200, 200, 3, "", False),
+        (
+            "alexander-testington",
+            "aaron-bug,alexander-testington,hercules-mulligan,",
+            True,
+        ),
+        (
+            "alexander-testington",
+            "aaron-bug,eliza-testington,hercules-mulligan,",
+            False,
+        ),
+        (
+            "alexander-testington",
+            None,
+            False,
+        ),
     ),
 )
-@mock.patch("bin.manage_asana_task.requests.get")
 @mock.patch("bin.manage_asana_task.log")
-def test__may_bridge_to_asana__react_to_repo_team(
+def test__may_bridge_to_asana__react_to_specified_users(
     mock_log,
-    mock_get,
-    username,
-    teams_resp_status_code,
-    members_resp_2_status_code,
-    expected_call_count,
-    expected_error_log_starter,
-    expected_result,
     monkeypatch,
+    actor_username,
+    actor_allowlist,
+    expected_retval,
 ):
-    monkeypatch.setenv("ONLY_REACT_TO", FLAG_ONLY_REACT_TO_REPO_TEAM)
-    monkeypatch.setenv("REPO_TOKEN", "test-token-for-github")
-
-    fake_repo_teams_response = mock.Mock()
-    fake_repo_teams_response.status_code = teams_resp_status_code
-    fake_repo_teams_response.text = json.dumps(
-        [
-            {
-                "id": 1,
-                "node_id": "TESTVGVhbTE=",
-                "members_url": "https://api.github.com/orgs/test/teams/team-one/members{/member}"
-                # partial representation - we don't need it all
-            },
-            {
-                "id": 99,
-                "node_id": "TESTTWOhbTE=",
-                "members_url": "https://api.github.com/orgs/test/teams/team-99/members{/member}",
-                # partial representation - we don't need it all
-            },
-        ]
-    )
-
-    fake_team_member_response_1 = mock.Mock()
-    fake_team_member_response_1.status_code = 200
-    fake_team_member_response_1.text = json.dumps(
-        # partial representations - we don't need it all
-        [
-            # team-one members
-            {"login": "alice-mctest", "id": 1, "node_id": "MDQ6VXNlcjE="},
-            {"login": "bob-mctest", "id": 2, "node_id": "ABQ6VXNlcjE="},
-        ],
-    )
-
-    fake_team_member_response_2 = mock.Mock()
-    fake_team_member_response_2.status_code = members_resp_2_status_code
-    fake_team_member_response_2.text = json.dumps(
-        # partial representations - we don't need it all
-        [
-            # team-99 members
-            {"login": "eve-mctest", "id": 33, "node_id": "EFQ6VXNlcjE="},
-            {"login": "alexander-testington", "id": 99, "node_id": "CDQ6VXNlcjE="},
-        ],
-    )
-
-    mock_get.side_effect = [
-        fake_repo_teams_response,
-        fake_team_member_response_1,
-        fake_team_member_response_2,
-    ]
-
-    if expected_result is SystemExit:
-        with pytest.raises(expected_result):
-            _may_bridge_to_asana(actor=username, repo_info="example/luftballons")
+    monkeypatch.setenv("ONLY_REACT_TO", FLAG_ONLY_REACT_TO_SPECIFIED_USERS)
+    monkeypatch.setenv("ACTOR_ALLOWLIST", actor_allowlist)
+    assert _may_bridge_to_asana(actor=actor_username, repo_info="example/luftballons") is expected_retval
+    if expected_retval is True:
+        mock_log.assert_called_once_with(f"Actor {actor_username} is in the provided allowlist.")
     else:
-        assert (
-            _may_bridge_to_asana(
-                actor=username,
-                repo_info="example/luftballons",
-            )
-            is expected_result
+        assert mock_log.call_count == 2
+        mock_log.assert_has_calls(
+            (
+                mock.call(f"Actor {actor_username} is not in the provided allowlist."),
+                mock.call("Bridging this issue to Asana is not allowed"),
+            ),
+            {},
         )
 
-    assert mock_get.call_count == expected_call_count
-    assert mock_get.call_args_list[0] == mock.call(
-        "https://api.github.com/repos/example/luftballons/teams",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": "Bearer test-token-for-github",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    if expected_call_count == 3:
-        assert mock_get.call_args_list[1] == mock.call(
-            "https://api.github.com/orgs/test/teams/team-one/members",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": "Bearer test-token-for-github",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        assert mock_get.call_args_list[2] == mock.call(
-            "https://api.github.com/orgs/test/teams/team-99/members",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": "Bearer test-token-for-github",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
 
-    if expected_result is SystemExit:
-        assert mock_log.call_args_list[0][0][0].startswith(expected_error_log_starter)
-    elif expected_result is True:
-        mock_log.assert_called_once_with("Issue actor alexander-testington is on a team associated with the repo.")
-    else:
-        mock_log.assert_called_once_with("Bridging this issue to Asana is not allowed")
-
-
-@pytest.mark.parametrize(
-    "username, fake_org_members_response_status_code, expected_result",
-    (
-        ("alexander-testington", 200, True),
-        ("not-in-this-repo", 200, False),
-        ("alexander-testington", 404, SystemExit),
-    ),
-)
-@mock.patch("bin.manage_asana_task.requests.get")
 @mock.patch("bin.manage_asana_task.log")
-def test__may_bridge_to_asana__react_to_repo_org(
-    mock_log,
-    mock_get,
-    username,
-    fake_org_members_response_status_code,
-    expected_result,
-    monkeypatch,
-):
-
-    monkeypatch.setenv("ONLY_REACT_TO", FLAG_ONLY_REACT_TO_REPO_ORG)
-    monkeypatch.setenv("REPO_TOKEN", "test-token-for-github")
-
-    fake_org_members_response = mock.Mock()
-    fake_org_members_response.status_code = fake_org_members_response_status_code
-    fake_org_members_response.text = json.dumps(
-        [
-            {
-                "login": "professor-falken",
-                "id": 1,
-                "node_id": "ABC6VXNlcjE=",
-            },
-            {
-                "login": "alexander-testington",
-                "id": 34532454,
-                "node_id": "ADEF6VXNlcjE=",
-            },
-            {
-                "login": "david-lightman",
-                "id": 123131,
-                "node_id": "ZBC6VXNlcjE=",
-            },
-        ]
-    )
-
-    mock_get.return_value = fake_org_members_response
-
-    if expected_result is SystemExit:
-        with pytest.raises(expected_result):
-            _may_bridge_to_asana(actor=username, repo_info="example/luftballons")
-    else:
-        assert (
-            _may_bridge_to_asana(
-                actor=username,
-                repo_info="example/luftballons",
-            )
-            is expected_result
-        )
-
-    mock_get.assert_called_once_with(
-        "https://api.github.com/orgs/example/members",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": "Bearer test-token-for-github",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-
-    if expected_result is SystemExit:
-        assert mock_log.call_args_list[0][0][0].startswith("Problem getting member data for example")
-    elif expected_result is True:
-        mock_log.assert_called_once_with("Issue actor alexander-testington is part of the example org that owns this repo.")
-    else:
-        mock_log.assert_called_once_with("Bridging this issue to Asana is not allowed")
-
-
-def test__may_bridge_to_asana__react_to_set_to_nonsense(monkeypatch):
+def test__may_bridge_to_asana__react_to_set_to_nonsense(mock_log, monkeypatch):
     monkeypatch.setenv("ONLY_REACT_TO", "not-a-recognised-value")
-
     assert _may_bridge_to_asana(actor="alexander-testington", repo_info="example/luftballons") is False
+    mock_log.assert_called_once_with("Bridging this issue to Asana is not allowed")
 
 
 @mock.patch("bin.manage_asana_task._may_bridge_to_asana")
@@ -550,4 +396,6 @@ def test_main__not_allowed_to_bridge(
     )
     assert not mock_create_task.called
     assert not mock_add_task_as_comment_on_github_issue.called
-    mock_log.assert_called_once_with("alexander-testington is not in a team associated with example/luftballons. Not mirroring Issue to Asana")
+    mock_log.assert_called_once_with(
+        "alexander-testington is not in the allowlist of users who can trigger mirroring. Not mirroring this Issue to Asana"
+    )
