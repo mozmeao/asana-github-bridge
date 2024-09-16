@@ -6,9 +6,7 @@
 
 set -exo pipefail
 
-# We need this installed, but we don't want it to live in the main requirements
-# We will need to periodically review this pinning
-
-pip install -U pip
-pip install pip-tools
-pip-compile --generate-hashes --no-header
+pip install -U uv
+# start with a clean slate each time
+rm requirements.txt
+uv pip compile --generate-hashes --no-strip-extras requirements.in -o requirements.txt
